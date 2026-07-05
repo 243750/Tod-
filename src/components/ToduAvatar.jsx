@@ -1,8 +1,7 @@
 'use client';
 import { useRive, useStateMachineInput } from '@rive-app/react-canvas';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
-// Mapa de emoción hacia el número del input Expressions[cite: 1]
 const EMOTION_MAP = {
   idle:      1,
   happy:     2,
@@ -11,52 +10,70 @@ const EMOTION_MAP = {
   surprised: 5,
 };
 
-// Mapa de mes hacia el número del input Seasonal[cite: 1]
 function getSeasonalValue() {
   const month = new Date().getMonth() + 1;
-  if (month === 4) return 2; // Easter[cite: 1]
-  if (month === 10) return 3; // Halloween[cite: 1]
-  if (month === 12) return 4; // Christmas[cite: 1]
-  return 1; // Normal[cite: 1]
+  if (month === 4) return 2; 
+  if (month === 10) return 3; 
+  if (month === 12) return 4; 
+  return 1; 
 }
 
 export default function ToduAvatar({ emotion = 'idle', size = 300 }) {
+  // Referencia para atrapar el lienzo (canvas) en el DOM
+  const containerRef = useRef(null);
+  
   const { RiveComponent, rive } = useRive({
     src: '/animations/robot.riv',
     stateMachines: 'State Machine 1',
     autoplay: true,
   });
 
-  // Conexión con el input numérico "Expressions" de tu diseño en Rive[cite: 1]
-  const expressionInput = useStateMachineInput(
-    rive, 
-    'State Machine 1', 
-    'Expressions'
-  );
-  
-  // Conexión con el input numérico "Seasonal" de tu diseño en Rive[cite: 1]
-  const seasonalInput = useStateMachineInput(
-    rive, 
-    'State Machine 1', 
-    'Seasonal'
-  );
+  const expressionInput = useStateMachineInput(rive, 'State Machine 1', 'Expressions');
+  const seasonalInput = useStateMachineInput(rive, 'State Machine 1', 'Seasonal');
 
-  // Efecto para cambiar la expresión del robot cuando la propiedad emotion cambia
+  // EFECTO 1: Emociones
   useEffect(() => {
     if (expressionInput) {
       expressionInput.value = EMOTION_MAP[emotion];
     }
   }, [emotion, expressionInput]);
 
-  // Efecto para asignar el accesorio según el mes actual (Ej. Calabaza en octubre)
+  // EFECTO 2: Temporada
   useEffect(() => {
     if (seasonalInput) {
       seasonalInput.value = getSeasonalValue();
     }
   }, [seasonalInput]);
 
+  // EFECTO 3: Seguimiento Global del Mouse
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      // isTrusted evita un bucle infinito (solo reacciona a movimientos humanos)
+      if (!e.isTrusted || !containerRef.current) return;
+      
+      const canvas = containerRef.current.querySelector('canvas');
+      if (canvas) {
+        // Le "inyectamos" un evento de mouse falso al canvas de Rive
+        // con las coordenadas reales de toda tu pantalla.
+        canvas.dispatchEvent(new MouseEvent('mousemove', {
+          clientX: e.clientX,
+          clientY: e.clientY,
+          bubbles: true
+        }));
+      }
+    };
+
+    // Escuchamos a toda la ventana, no solo al componente
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
   return (
-    <div style={{ width: size, height: size }} className="mx-auto flex justify-center items-center">
+    <div 
+      ref={containerRef}
+      style={{ width: size, height: size }} 
+      className="mx-auto flex justify-center items-center"
+    >
       <RiveComponent />
     </div>
   );
