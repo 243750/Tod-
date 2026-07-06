@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import ToduAvatar from '../../../components/ToduAvatar';
+
 // === LÓGICA MATEMÁTICA ===
 const calculatePoints = (values) => {
   if (values.length === 0) return 0;
