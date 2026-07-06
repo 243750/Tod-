@@ -1,80 +1,72 @@
 'use client';
-import { useRive, useStateMachineInput } from '@rive-app/react-canvas';
-import { useEffect, useRef } from 'react';
+import { useRive, useStateMachineInput, Layout, Fit, Alignment } from '@rive-app/react-canvas';
+import { useEffect } from 'react';
 
-const EMOTION_MAP = {
-  idle:      1,
-  happy:     2,
-  sad:       3,
-  scared:    4,
-  surprised: 5,
-};
-
-function getSeasonalValue() {
-  const month = new Date().getMonth() + 1;
-  if (month === 4) return 2; 
-  if (month === 10) return 3; 
-  if (month === 12) return 4; 
-  return 1; 
-}
-
-export default function ToduAvatar({ emotion = 'idle', size = 300 }) {
-  // Referencia para atrapar el lienzo (canvas) en el DOM
-  const containerRef = useRef(null);
-  
-  const { RiveComponent, rive } = useRive({
-    src: '/animations/robot.riv',
-    stateMachines: 'State Machine 1',
+export default function ToduAvatar({ emotion = 'idle', size = 110 }) {
+  const { rive, RiveComponent } = useRive({
+    src: '/todufinal.riv',
+    stateMachines: 'State Machine 1', // Asegúrate de que este es el nombre correcto
     autoplay: true,
+    // Esto ayuda a que el robot trate de llenar mejor el espacio
+    layout: new Layout({
+      fit: Fit.Cover,
+      alignment: Alignment.Center,
+    }),
   });
 
-  const expressionInput = useStateMachineInput(rive, 'State Machine 1', 'Expressions');
-  const seasonalInput = useStateMachineInput(rive, 'State Machine 1', 'Seasonal');
+  // 1. Inputs de las Emociones
+  const smilingInput = useStateMachineInput(rive, 'State Machine 1', 'Smiling');
+  const happyInput = useStateMachineInput(rive, 'State Machine 1', 'Happy');
+  const sadInput = useStateMachineInput(rive, 'State Machine 1', 'Sad');
+  const scaredInput = useStateMachineInput(rive, 'State Machine 1', 'Scared');
+  const surprisedInput = useStateMachineInput(rive, 'State Machine 1', 'Surprised');
 
-  // EFECTO 1: Emociones
+  // 2. Inputs de los Accesorios (Desbloqueables)
+  const easterInput = useStateMachineInput(rive, 'State Machine 1', 'Easter');
+  const halloweenInput = useStateMachineInput(rive, 'State Machine 1', 'Halloween');
+  const christmasInput = useStateMachineInput(rive, 'State Machine 1', 'Christmas');
+
+  // Apagar accesorios por defecto al cargar
   useEffect(() => {
-    if (expressionInput) {
-      expressionInput.value = EMOTION_MAP[emotion];
+    if (easterInput) easterInput.value = false;
+    if (halloweenInput) halloweenInput.value = false;
+    if (christmasInput) christmasInput.value = false;
+  }, [easterInput, halloweenInput, christmasInput]);
+
+  // Manejar el cambio de emociones
+  useEffect(() => {
+    if (!rive) return;
+
+    // Reseteamos todas a falso primero
+    if (smilingInput) smilingInput.value = false;
+    if (happyInput) happyInput.value = false;
+    if (sadInput) sadInput.value = false;
+    if (scaredInput) scaredInput.value = false;
+    if (surprisedInput) surprisedInput.value = false;
+
+    // Activamos la que pasamos por prop
+    switch (emotion) {
+      case 'smiling': if (smilingInput) smilingInput.value = true; break;
+      case 'happy': if (happyInput) happyInput.value = true; break;
+      case 'sad': if (sadInput) sadInput.value = true; break;
+      case 'scared': if (scaredInput) scaredInput.value = true; break;
+      case 'surprised': if (surprisedInput) surprisedInput.value = true; break;
+      case 'idle':
+      default:
+        // Todas en falso lo dejan en estado neutral
+        break;
     }
-  }, [emotion, expressionInput]);
+  }, [emotion, rive, smilingInput, happyInput, sadInput, scaredInput, surprisedInput]);
 
-  // EFECTO 2: Temporada
-  useEffect(() => {
-    if (seasonalInput) {
-      seasonalInput.value = getSeasonalValue();
-    }
-  }, [seasonalInput]);
-
-  // EFECTO 3: Seguimiento Global del Mouse
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      // isTrusted evita un bucle infinito (solo reacciona a movimientos humanos)
-      if (!e.isTrusted || !containerRef.current) return;
+return (
+    // 1. El marco exacto: Le devolvemos el 'overflow-hidden' para que recorte el lienzo gigante y no se coma tu pantalla
+    <div style={{ width: size, height: size }} className="relative flex justify-center items-center overflow-hidden pointer-events-none">
       
-      const canvas = containerRef.current.querySelector('canvas');
-      if (canvas) {
-        // Le "inyectamos" un evento de mouse falso al canvas de Rive
-        // con las coordenadas reales de toda tu pantalla.
-        canvas.dispatchEvent(new MouseEvent('mousemove', {
-          clientX: e.clientX,
-          clientY: e.clientY,
-          bubbles: true
-        }));
-      }
-    };
+      {/* 2. El lienzo de alta resolución: 250% más grande, pero atrapado dentro del marco anterior */}
+      <div className="absolute flex justify-center items-center w-[250%] h-[250%]">
+        <RiveComponent className="w-full h-full" />
+      </div>
 
-    // Escuchamos a toda la ventana, no solo al componente
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
-
-  return (
-    <div 
-      ref={containerRef}
-      style={{ width: size, height: size }} 
-      className="mx-auto flex justify-center items-center"
-    >
-      <RiveComponent />
     </div>
   );
 }
